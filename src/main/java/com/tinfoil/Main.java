@@ -27,7 +27,6 @@ public class Main {
         app.start(config.port());
 
         System.out.println("tinfoil-buckets-sidecar listening on :" + config.port()
-                + " -> s3://" + config.bucket()
                 + (config.multitenant() ? " [multitenant]" : ""));
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {

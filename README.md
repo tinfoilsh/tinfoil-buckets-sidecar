@@ -19,7 +19,7 @@ Simple server that exposes an S3 API to the local network. Internally uses S3 en
 ## Notes
 
 - **Path-style only.** Configure your S3 SDK with `forcePathStyle: true` (or equivalent). Virtual-hosted (`bucket.s3.amazonaws.com`) URLs are not supported.
-- **Single backing bucket for now.** All requests route to the bucket configured on the sidecar server via `BUCKET`; the bucket name in the request URL is currently ignored. (Future: per-request bucket selection.)
+- **Bucket comes from the request URL.** The sidecar routes to whatever bucket the client specifies in the path (`s3://bucket/key`). IAM is the enforcement point for which buckets are reachable — see [Required AWS permissions](#required-aws-permissions).
 - **No auth.** sigv4 signatures from clients are accepted and discarded.
 - When GET-ing large files, users need to use a special client. Aside from that, any S3 sdk should work.
 
@@ -28,7 +28,6 @@ Simple server that exposes an S3 API to the local network. Internally uses S3 en
 Create `.env` in the project root:
 
 ```
-BUCKET=your-real-s3-bucket
 ENCRYPTION_KEY=<base64 32-byte AES-256 key>     # openssl rand -base64 32
 AWS_REGION=us-east-2
 AWS_ACCESS_KEY_ID=...
@@ -106,6 +105,14 @@ wrong key arrives for a given object, the sidecar returns
 ## Test
 
 `client/` contains the python S3 sdk and the pytest suite.
+
+Tests target whatever bucket `TEST_BUCKET` points at (the sidecar routes to the
+bucket in the request URL, so the test bucket must be a real one your AWS creds
+can access):
+
+```
+TEST_BUCKET=your-bucket client/.venv/bin/pytest -v client/test_s3_compat.py
+```
 
 Default suite (sidecar in default buffered mode, any `BUFFER_SIZE`):
 

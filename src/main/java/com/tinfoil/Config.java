@@ -15,7 +15,6 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
 
 public record Config(
-        String bucket,
         SecretKey aesKey,
         Region region,
         AwsCredentialsProvider creds,
@@ -39,7 +38,6 @@ public record Config(
             aesKey = loadAesKey(envKey);
         }
         return new Config(
-                require(dotenv, "BUCKET"),
                 aesKey,
                 resolveRegion(dotenv),
                 resolveCreds(dotenv),
@@ -101,13 +99,5 @@ public record Config(
             return ProfileCredentialsProvider.create(profile);
         }
         return DefaultCredentialsProvider.builder().build();
-    }
-
-    private static String require(Dotenv dotenv, String name) {
-        String v = dotenv.get(name);
-        if (v == null || v.isEmpty()) {
-            throw new IllegalStateException("Missing " + name + " (set it in .env)");
-        }
-        return v;
     }
 }

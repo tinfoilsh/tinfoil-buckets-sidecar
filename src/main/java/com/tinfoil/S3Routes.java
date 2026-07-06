@@ -68,7 +68,6 @@ public class S3Routes {
 
     private final TenantResolver resolver;
     private final S3Client housekeepingClient; 
-    private final String bucket;
     private final Region region;
     private final boolean delayedAuth;
     private final ConcurrentHashMap<String, MultipartSession> sessions = new ConcurrentHashMap<>();
@@ -81,7 +80,6 @@ public class S3Routes {
     public S3Routes(TenantResolver resolver, S3Client housekeepingClient, Config config) {
         this.resolver = resolver;
         this.housekeepingClient = housekeepingClient;
-        this.bucket = config.bucket();
         this.region = config.region();
         this.delayedAuth = config.delayedAuth();
     }
@@ -172,6 +170,7 @@ public class S3Routes {
         TenantCtx tenant = resolver.resolve(ctx);
         if (tenant == null) return;
         String userKey = ctx.pathParam("key");
+        String bucket = ctx.pathParam("bucket");
 
         ResolvedBody rb = resolveBody(ctx, 411, "MissingContentLength",
                 "Content-Length header is required for PutObject.");
@@ -203,6 +202,7 @@ public class S3Routes {
         TenantCtx tenant = resolver.resolve(ctx);
         if (tenant == null) return;
         String userKey = ctx.pathParam("key");
+        String bucket = ctx.pathParam("bucket");
         String s3K = tenant.s3Key(userKey);
 
         // In DEFAULT (buffered) mode: the encryption client verifies the GCM
@@ -253,6 +253,7 @@ public class S3Routes {
         TenantCtx tenant = resolver.resolve(ctx);
         if (tenant == null) return;
         String userKey = ctx.pathParam("key");
+        String bucket = ctx.pathParam("bucket");
         HeadObjectResponse resp = tenant.client().headObject(b -> b
                 .bucket(bucket).key(tenant.s3Key(userKey)));
         // AES-GCM (v4 default) appends a 16-byte authentication tag to the ciphertext.
@@ -271,6 +272,7 @@ public class S3Routes {
     private void deleteObject(Context ctx) {
         TenantCtx tenant = resolver.resolve(ctx);
         if (tenant == null) return;
+        String bucket = ctx.pathParam("bucket");
         tenant.client().deleteObject(b -> b.bucket(bucket).key(tenant.s3Key(ctx.pathParam("key"))));
         ctx.status(HttpStatus.NO_CONTENT);
     }
@@ -280,6 +282,7 @@ public class S3Routes {
     private void handleBucketHead(Context ctx) {
         TenantCtx tenant = resolver.resolve(ctx);
         if (tenant == null) return;
+        String bucket = ctx.pathParam("bucket");
         housekeepingClient.headBucket(b -> b.bucket(bucket));
         ctx.status(HttpStatus.OK);
     }
@@ -317,6 +320,7 @@ public class S3Routes {
     private void deleteObjects(Context ctx) {
         TenantCtx tenant = resolver.resolve(ctx);
         if (tenant == null) return;
+        String bucket = ctx.pathParam("bucket");
         List<ObjectIdentifier> userKeys = parseDeleteRequestKeys(ctx.bodyAsBytes());
         if (userKeys.isEmpty()) {
             writeS3Error(ctx, 400, "MalformedXML", "Delete request contained no keys.");
@@ -375,13 +379,13 @@ public class S3Routes {
     private void listMultipartUploads(Context ctx) {
         TenantCtx tenant = resolver.resolve(ctx);
         if (tenant == null) return;
+        String bucket = ctx.pathParam("bucket");
         ListMultipartUploadsRequest.Builder req = ListMultipartUploadsRequest.builder().bucket(bucket);
         if (tenant.tenantId() != null) req.prefix(tenant.prefix());
         ListMultipartUploadsResponse resp = tenant.client().listMultipartUploads(req.build());
-        String bucketParam = ctx.pathParam("bucket");
         StringBuilder xml = new StringBuilder(512);
         xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?><ListMultipartUploadsResult>");
-        xml.append("<Bucket>").append(xmlEscape(bucketParam)).append("</Bucket>");
+        xml.append("<Bucket>").append(xmlEscape(bucket)).append("</Bucket>");
         xml.append("<KeyMarker></KeyMarker>");
         xml.append("<UploadIdMarker></UploadIdMarker>");
         xml.append("<NextKeyMarker></NextKeyMarker>");
@@ -409,6 +413,7 @@ public class S3Routes {
         TenantCtx tenant = resolver.resolve(ctx);
         if (tenant == null) return;
         String userKey = ctx.pathParam("key");
+        String bucket = ctx.pathParam("bucket");
         ListPartsResponse resp = tenant.client().listParts(ListPartsRequest.builder()
                 .bucket(bucket).key(tenant.s3Key(userKey)).uploadId(uploadId).build());
 
@@ -432,10 +437,9 @@ public class S3Routes {
             }
         }
 
-        String bucketParam = ctx.pathParam("bucket");
         StringBuilder xml = new StringBuilder(512);
         xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?><ListPartsResult>");
-        xml.append("<Bucket>").append(xmlEscape(bucketParam)).append("</Bucket>");
+        xml.append("<Bucket>").append(xmlEscape(bucket)).append("</Bucket>");
         xml.append("<Key>").append(xmlEscape(userKey)).append("</Key>");
         xml.append("<UploadId>").append(xmlEscape(uploadId)).append("</UploadId>");
         xml.append("<PartNumberMarker>0</PartNumberMarker>");
@@ -486,7 +490,7 @@ public class S3Routes {
             try {
                 // Abort is not crypto-aware — housekeeping client works in either mode.
                 housekeepingClient.abortMultipartUpload(AbortMultipartUploadRequest.builder()
-                        .bucket(bucket).key(s3K).uploadId(s.uploadId).build());
+                        .bucket(s.bucket).key(s3K).uploadId(s.uploadId).build());
             } catch (Exception e) {
                 System.err.println("multipart GC: abort failed for " + s.uploadId + ": " + e.getMessage());
             }
@@ -496,6 +500,7 @@ public class S3Routes {
     private void listObjectsV2(Context ctx) {
         TenantCtx tenant = resolver.resolve(ctx);
         if (tenant == null) return;
+        String bucket = ctx.pathParam("bucket");
         ListObjectsV2Request.Builder b = ListObjectsV2Request.builder().bucket(bucket);
         String userPrefix = ctx.queryParam("prefix");
         // In multitenant mode, force-scope the listing to <tenantId>/<userPrefix>.
@@ -512,11 +517,10 @@ public class S3Routes {
 
         ListObjectsV2Response resp = tenant.client().listObjectsV2(b.build());
 
-        String bucketParam = ctx.pathParam("bucket");
         StringBuilder xml = new StringBuilder(512);
         xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
         xml.append("<ListBucketResult>");
-        xml.append("<Name>").append(xmlEscape(bucketParam)).append("</Name>");
+        xml.append("<Name>").append(xmlEscape(bucket)).append("</Name>");
         if (userPrefix != null) {
             xml.append("<Prefix>").append(xmlEscape(userPrefix)).append("</Prefix>");
         }
@@ -568,6 +572,7 @@ public class S3Routes {
         TenantCtx tenant = resolver.resolve(ctx);
         if (tenant == null) return;
         String userKey = ctx.pathParam("key");
+        String bucket = ctx.pathParam("bucket");
         CreateMultipartUploadRequest.Builder b = CreateMultipartUploadRequest.builder()
                 .bucket(bucket).key(tenant.s3Key(userKey));
         String contentType = ctx.header("Content-Type");
@@ -578,13 +583,12 @@ public class S3Routes {
         String uploadId = resp.uploadId();
         // Sessions store the user-facing key; we re-prefix at S3-op boundaries.
         sessions.put(tenant.sessionKey(uploadId),
-                new MultipartSession(uploadId, userKey, tenant.tenantId()));
+                new MultipartSession(uploadId, userKey, bucket, tenant.tenantId()));
 
-        String bucketParam = ctx.pathParam("bucket");
         ctx.contentType("application/xml");
         ctx.result("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
                 + "<InitiateMultipartUploadResult>"
-                + "<Bucket>" + xmlEscape(bucketParam) + "</Bucket>"
+                + "<Bucket>" + xmlEscape(bucket) + "</Bucket>"
                 + "<Key>" + xmlEscape(userKey) + "</Key>"
                 + "<UploadId>" + xmlEscape(uploadId) + "</UploadId>"
                 + "</InitiateMultipartUploadResult>");
@@ -693,7 +697,7 @@ public class S3Routes {
             }
 
             CompleteMultipartUploadRequest req = CompleteMultipartUploadRequest.builder()
-                    .bucket(bucket).key(tenant.s3Key(session.key)).uploadId(uploadId)
+                    .bucket(session.bucket).key(tenant.s3Key(session.key)).uploadId(uploadId)
                     .multipartUpload(b -> b.parts(session.completedParts))
                     .build();
             resp = tenant.client().completeMultipartUpload(req);
@@ -702,12 +706,11 @@ public class S3Routes {
         }
         sessions.remove(tenant.sessionKey(uploadId));
 
-        String bucketParam = ctx.pathParam("bucket");
         ctx.contentType("application/xml");
         ctx.result("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
                 + "<CompleteMultipartUploadResult>"
-                + "<Location>http://" + xmlEscape(bucketParam) + "/" + xmlEscape(session.key) + "</Location>"
-                + "<Bucket>" + xmlEscape(bucketParam) + "</Bucket>"
+                + "<Location>http://" + xmlEscape(session.bucket) + "/" + xmlEscape(session.key) + "</Location>"
+                + "<Bucket>" + xmlEscape(session.bucket) + "</Bucket>"
                 + "<Key>" + xmlEscape(session.key) + "</Key>"
                 + "<ETag>" + xmlEscape(resp.eTag() != null ? resp.eTag() : "") + "</ETag>"
                 + "</CompleteMultipartUploadResult>");
@@ -724,7 +727,7 @@ public class S3Routes {
         session.lock.lock();
         try {
             tenant.client().abortMultipartUpload(AbortMultipartUploadRequest.builder()
-                    .bucket(bucket).key(tenant.s3Key(session.key)).uploadId(uploadId).build());
+                    .bucket(session.bucket).key(tenant.s3Key(session.key)).uploadId(uploadId).build());
             sessions.remove(tenant.sessionKey(uploadId));
         } finally {
             session.lock.unlock();
@@ -734,7 +737,7 @@ public class S3Routes {
 
     private CompletedPart flushPart(TenantCtx tenant, MultipartSession session, boolean isLast) {
         UploadPartRequest.Builder b = UploadPartRequest.builder()
-                .bucket(bucket).key(tenant.s3Key(session.key))
+                .bucket(session.bucket).key(tenant.s3Key(session.key))
                 .uploadId(session.uploadId)
                 .partNumber(session.pendingPartNumber);
         if (isLast) {

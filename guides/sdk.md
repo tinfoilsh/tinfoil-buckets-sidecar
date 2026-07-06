@@ -61,5 +61,5 @@ The endpoint discards sigv4 signatures, so any throwaway credentials work — SD
 
 ## Caveats
 
-- **Single backing bucket.** The bucket name in the URL is ignored. All requests route to the bucket the sidecar was started with via `BUCKET`.
+- **Bucket from the URL.** The bucket name in the request path determines which S3 bucket the sidecar routes to. Point your SDK at any bucket your AWS credentials can reach.
 - **GET buffers in memory.** Default cap is 1 GiB; raise with `BUFFER_SIZE` env (up to 64 GiB). For larger objects, see `DANGEROUS_DELAYED_AUTH` in the main [README](../README.md#design-decisions-constraints).

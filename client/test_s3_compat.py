@@ -1,7 +1,8 @@
 """S3 protocol compatibility tests.
 
 Requires a running sidecar (default http://localhost:9000) and a real upstream
-bucket configured via the server's BUCKET env var.
+bucket. Set TEST_BUCKET to the bucket name your AWS credentials target —
+the sidecar routes to whatever bucket the request URL specifies.
 
   ./.venv/bin/pytest -v test_s3_compat.py
 """
