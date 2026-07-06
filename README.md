@@ -36,6 +36,44 @@ AWS_SECRET_ACCESS_KEY=...
 PORT=9000
 ```
 
+### Required AWS permissions
+
+The sidecar uses your AWS credentials directly (the `AWS_ACCESS_KEY_ID` /
+`AWS_SECRET_ACCESS_KEY` above) and whatever IAM permissions those credentials
+carry. Attach a policy to the IAM user or role with these permissions on your
+bucket:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:AbortMultipartUpload",
+        "s3:ListMultipartUploadParts"
+      ],
+      "Resource": "arn:aws:s3:::YOUR-BUCKET/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:ListBucketMultipartUploads",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": "arn:aws:s3:::YOUR-BUCKET"
+    }
+  ]
+}
+```
+
+The sidecar has no built-in bucket allowlist — IAM is the enforcement point
+for which buckets are reachable. For more buckets, add more `Resource` ARNs.
+
 ### Multitenant mode
 
 For deployments where multiple tenants share one sidecar (each with their own
