@@ -40,7 +40,8 @@ PORT=9000
 The sidecar uses your AWS credentials directly (the `AWS_ACCESS_KEY_ID` /
 `AWS_SECRET_ACCESS_KEY` above) and whatever IAM permissions those credentials
 carry. Attach a policy to the IAM user or role with these permissions on your
-bucket:
+bucket(s). List multiple `Resource` ARNs to grant access to more than one
+bucket under a single set of credentials:
 
 ```json
 {
@@ -55,7 +56,10 @@ bucket:
         "s3:AbortMultipartUpload",
         "s3:ListMultipartUploadParts"
       ],
-      "Resource": "arn:aws:s3:::YOUR-BUCKET/*"
+      "Resource": [
+        "arn:aws:s3:::YOUR-BUCKET-1/*",
+        "arn:aws:s3:::YOUR-BUCKET-2/*"
+      ]
     },
     {
       "Effect": "Allow",
@@ -64,7 +68,10 @@ bucket:
         "s3:ListBucketMultipartUploads",
         "s3:GetBucketLocation"
       ],
-      "Resource": "arn:aws:s3:::YOUR-BUCKET"
+      "Resource": [
+        "arn:aws:s3:::YOUR-BUCKET-1",
+        "arn:aws:s3:::YOUR-BUCKET-2"
+      ]
     }
   ]
 }
