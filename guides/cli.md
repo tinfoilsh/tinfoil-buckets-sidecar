@@ -41,12 +41,14 @@ export AWS_DEFAULT_REGION=us-east-2
 
 ## Roundtrip
 
-```
-aws --endpoint-url http://localhost:9000 s3 cp ./local.bin s3://bucket/key.bin
-aws --endpoint-url http://localhost:9000 s3 cp s3://bucket/key.bin ./roundtrip.bin
-aws --endpoint-url http://localhost:9000 s3 ls s3://bucket/
-```
+The bucket in the URL is the real target — your AWS credentials need access to it.
 
-The bucket name in the URL determines which S3 bucket the sidecar routes to — point it at any bucket your AWS credentials can reach.
+```
+export S3_BUCKET=my-bucket
+
+aws --endpoint-url http://localhost:9000 s3 cp ./local.bin s3://$S3_BUCKET/key.bin
+aws --endpoint-url http://localhost:9000 s3 cp s3://$S3_BUCKET/key.bin ./roundtrip.bin
+aws --endpoint-url http://localhost:9000 s3 ls s3://$S3_BUCKET/
+```
 
 See `client/test_aws_cli.sh` for a full PUT/GET/multipart/ls/rm script.

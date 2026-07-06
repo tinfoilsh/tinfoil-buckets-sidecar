@@ -70,9 +70,6 @@ bucket:
 }
 ```
 
-The sidecar has no built-in bucket allowlist — IAM is the enforcement point
-for which buckets are reachable. For more buckets, add more `Resource` ARNs.
-
 ### Multitenant mode
 
 For deployments where multiple tenants share one sidecar (each with their own
