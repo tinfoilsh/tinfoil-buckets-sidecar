@@ -103,9 +103,7 @@ wrong key arrives for a given object, the sidecar returns
 
 `client/` contains the python S3 sdk and the pytest suite.
 
-Tests target whatever bucket `TEST_BUCKET` points at (the sidecar routes to the
-bucket in the request URL, so the test bucket must be a real one your AWS creds
-can access):
+Tests target whatever bucket `TEST_BUCKET` points at. This must match your credentials
 
 ```
 TEST_BUCKET=your-bucket client/.venv/bin/pytest -v client/test_s3_compat.py
