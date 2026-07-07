@@ -414,8 +414,8 @@ public class S3Routes {
         if (tenant == null) return;
         String userKey = ctx.pathParam("key");
         String bucket = ctx.pathParam("bucket");
-        MultipartSession session = sessions.get(tenant.sessionKey(uploadId));
-        if (session != null && !sessionMatchesPath(ctx, session)) return;
+        MultipartSession session = lookupSession(ctx, tenant, uploadId);
+        if (session == null) return;
         ListPartsResponse resp = tenant.client().listParts(ListPartsRequest.builder()
                 .bucket(bucket).key(tenant.s3Key(userKey)).uploadId(uploadId).build());
 
@@ -425,17 +425,15 @@ public class S3Routes {
         Integer pendingNum = null;
         Integer pendingSize = null;
         String pendingEtag = null;
-        if (session != null) {
-            session.lock.lock();
-            try {
-                if (session.pendingPartBytes != null) {
-                    pendingNum = session.pendingPartNumber;
-                    pendingSize = session.pendingPartBytes.length;
-                    pendingEtag = session.pendingPartEtag;
-                }
-            } finally {
-                session.lock.unlock();
+        session.lock.lock();
+        try {
+            if (session.pendingPartBytes != null) {
+                pendingNum = session.pendingPartNumber;
+                pendingSize = session.pendingPartBytes.length;
+                pendingEtag = session.pendingPartEtag;
             }
+        } finally {
+            session.lock.unlock();
         }
 
         StringBuilder xml = new StringBuilder(512);
@@ -595,26 +593,26 @@ public class S3Routes {
                 + "</InitiateMultipartUploadResult>");
     }
 
-    /** S3 scopes an uploadId to the bucket/key it was initiated on; reject
-     *  requests that reuse a valid uploadId under a different path. */
-    private boolean sessionMatchesPath(Context ctx, MultipartSession session) {
-        if (session.bucket.equals(ctx.pathParam("bucket"))
-                && session.key.equals(ctx.pathParam("key"))) {
-            return true;
+    /** Looks up an in-progress multipart session, rejecting (404 NoSuchUpload)
+     *  if it's missing or was initiated on a different bucket/key than the
+     *  request path. S3 scopes an uploadId to the (bucket, key) it was created
+     *  on, so a valid uploadId under a different path is treated as nonexistent. */
+    private MultipartSession lookupSession(Context ctx, TenantCtx tenant, String uploadId) {
+        MultipartSession session = sessions.get(tenant.sessionKey(uploadId));
+        if (session == null
+                || !session.bucket.equals(ctx.pathParam("bucket"))
+                || !session.key.equals(ctx.pathParam("key"))) {
+            writeS3Error(ctx, 404, "NoSuchUpload", "The specified upload does not exist.");
+            return null;
         }
-        writeS3Error(ctx, 404, "NoSuchUpload", "The specified upload does not exist.");
-        return false;
+        return session;
     }
 
     private void uploadPart(Context ctx, String uploadId) {
         TenantCtx tenant = resolver.resolve(ctx);
         if (tenant == null) return;
-        MultipartSession session = sessions.get(tenant.sessionKey(uploadId));
-        if (session == null) {
-            writeS3Error(ctx, 404, "NoSuchUpload", "The specified upload does not exist.");
-            return;
-        }
-        if (!sessionMatchesPath(ctx, session)) return;
+        MultipartSession session = lookupSession(ctx, tenant, uploadId);
+        if (session == null) return;
         String partNumberParam = ctx.queryParam("partNumber");
         if (partNumberParam == null) {
             writeS3Error(ctx, 400, "InvalidArgument",
@@ -695,12 +693,8 @@ public class S3Routes {
     private void completeMultipartUpload(Context ctx, String uploadId) {
         TenantCtx tenant = resolver.resolve(ctx);
         if (tenant == null) return;
-        MultipartSession session = sessions.get(tenant.sessionKey(uploadId));
-        if (session == null) {
-            writeS3Error(ctx, 404, "NoSuchUpload", "The specified upload does not exist.");
-            return;
-        }
-        if (!sessionMatchesPath(ctx, session)) return;
+        MultipartSession session = lookupSession(ctx, tenant, uploadId);
+        if (session == null) return;
 
         CompleteMultipartUploadResponse resp;
         session.lock.lock();
@@ -733,12 +727,8 @@ public class S3Routes {
     private void abortMultipartUpload(Context ctx, String uploadId) {
         TenantCtx tenant = resolver.resolve(ctx);
         if (tenant == null) return;
-        MultipartSession session = sessions.get(tenant.sessionKey(uploadId));
-        if (session == null) {
-            writeS3Error(ctx, 404, "NoSuchUpload", "The specified upload does not exist.");
-            return;
-        }
-        if (!sessionMatchesPath(ctx, session)) return;
+        MultipartSession session = lookupSession(ctx, tenant, uploadId);
+        if (session == null) return;
         session.lock.lock();
         try {
             tenant.client().abortMultipartUpload(AbortMultipartUploadRequest.builder()
