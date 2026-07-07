@@ -1,8 +1,7 @@
 """S3 protocol compatibility tests.
 
 Requires a running sidecar (default http://localhost:9000) and a real upstream
-bucket. Set TEST_BUCKET to the bucket name your AWS credentials target —
-the sidecar routes to whatever bucket the request URL specifies.
+bucket. Defaults to `test-bucket-sidecar-1`; override with TEST_BUCKET.
 
   ./.venv/bin/pytest -v test_s3_compat.py
 """
@@ -16,7 +15,7 @@ from botocore.config import Config
 from botocore.exceptions import ClientError
 
 ENDPOINT = os.environ.get("ENDPOINT", "http://localhost:9000")
-BUCKET = os.environ.get("TEST_BUCKET", "anybucket")
+BUCKET = os.environ.get("TEST_BUCKET", "test-bucket-sidecar-1")
 SIDECAR_MULTITENANT = os.environ.get("SIDECAR_MULTITENANT", "").lower() == "true"
 
 

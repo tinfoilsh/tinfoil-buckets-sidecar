@@ -11,7 +11,7 @@
 set -euo pipefail
 
 ENDPOINT="http://localhost:9000"
-BUCKET="${TEST_BUCKET:?TEST_BUCKET must be set to a real S3 bucket}"
+BUCKET="${TEST_BUCKET:-test-bucket-sidecar-1}"
 TMPDIR=$(mktemp -d)
 trap "rm -rf $TMPDIR" EXIT
 

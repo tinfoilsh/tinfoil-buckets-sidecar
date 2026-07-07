@@ -68,10 +68,7 @@ bucket under a single set of credentials:
         "s3:ListBucketMultipartUploads",
         "s3:GetBucketLocation"
       ],
-      "Resource": [
-        "arn:aws:s3:::YOUR-BUCKET-1",
-        "arn:aws:s3:::YOUR-BUCKET-2"
-      ]
+      "Resource": ["arn:aws:s3:::YOUR-BUCKET-1", "arn:aws:s3:::YOUR-BUCKET-2"]
     }
   ]
 }
@@ -110,16 +107,18 @@ wrong key arrives for a given object, the sidecar returns
 
 `client/` contains the python S3 sdk and the pytest suite.
 
-Tests target whatever bucket `TEST_BUCKET` points at. The bucket must be accessible with your AWS credentials.
-
-```
-TEST_BUCKET=your-bucket client/.venv/bin/pytest -v client/test_s3_compat.py
-```
-
-Default suite (sidecar in default buffered mode, any `BUFFER_SIZE`):
+Tests default to `test-bucket-sidecar-1` (override with `TEST_BUCKET`). The bucket must be accessible with your AWS credentials. Default suite works in any `BUFFER_SIZE` mode:
 
 ```
 client/.venv/bin/pytest -v client/test_s3_compat.py
+```
+
+### Multi-bucket routing
+
+`test_multi_bucket.py` covers cross-bucket routing — the bucket comes from the URL, not config. It needs two distinct buckets, defaulting to `test-bucket-sidecar-1` / `test-bucket-sidecar-2`:
+
+```
+client/.venv/bin/pytest -v client/test_multi_bucket.py
 ```
 
 ### Mode-specific tests (opt-in)
