@@ -18,7 +18,7 @@ import boto3
 from botocore.config import Config
 
 ENDPOINT = "http://localhost:9000"
-BUCKET = "mock"
+BUCKET = os.environ.get("TEST_BUCKET", "test-bucket-sidecar-1")
 PART_SIZE_BYTES = 5 * 1024 * 1024  # match sim's PART_SIZE_MB=5 default
 
 s3 = boto3.client(

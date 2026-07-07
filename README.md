@@ -19,7 +19,7 @@ Simple server that exposes an S3 API to the local network. Internally uses S3 en
 ## Notes
 
 - **Path-style only.** Configure your S3 SDK with `forcePathStyle: true` (or equivalent). Virtual-hosted (`bucket.s3.amazonaws.com`) URLs are not supported.
-- **Single backing bucket for now.** All requests route to the bucket configured on the sidecar server via `BUCKET`; the bucket name in the request URL is currently ignored. (Future: per-request bucket selection.)
+- **Bucket comes from the request URL.** The sidecar routes to whatever bucket the client specifies in the path (`s3://bucket/key`). IAM is the enforcement point for which buckets are reachable — see [Required AWS permissions](#required-aws-permissions).
 - **No auth.** sigv4 signatures from clients are accepted and discarded.
 - When GET-ing large files, users need to use a special client. Aside from that, any S3 sdk should work.
 
@@ -28,12 +28,50 @@ Simple server that exposes an S3 API to the local network. Internally uses S3 en
 Create `.env` in the project root:
 
 ```
-BUCKET=your-real-s3-bucket
 ENCRYPTION_KEY=<base64 32-byte AES-256 key>     # openssl rand -base64 32
 AWS_REGION=us-east-2
 AWS_ACCESS_KEY_ID=...
 AWS_SECRET_ACCESS_KEY=...
 PORT=9000
+```
+
+### Required AWS permissions
+
+The sidecar uses your AWS credentials directly (the `AWS_ACCESS_KEY_ID` /
+`AWS_SECRET_ACCESS_KEY` above) and whatever IAM permissions those credentials
+carry. Attach a policy to the IAM user or role with these permissions on your
+bucket(s). List multiple `Resource` ARNs to grant access to more than one
+bucket under a single set of credentials:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:AbortMultipartUpload",
+        "s3:ListMultipartUploadParts"
+      ],
+      "Resource": [
+        "arn:aws:s3:::YOUR-BUCKET-1/*",
+        "arn:aws:s3:::YOUR-BUCKET-2/*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:ListBucketMultipartUploads",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": ["arn:aws:s3:::YOUR-BUCKET-1", "arn:aws:s3:::YOUR-BUCKET-2"]
+    }
+  ]
+}
 ```
 
 ### Multitenant mode
@@ -69,10 +107,18 @@ wrong key arrives for a given object, the sidecar returns
 
 `client/` contains the python S3 sdk and the pytest suite.
 
-Default suite (sidecar in default buffered mode, any `BUFFER_SIZE`):
+Tests default to `test-bucket-sidecar-1` (override with `TEST_BUCKET`). The bucket must be accessible with your AWS credentials. Default suite works in any `BUFFER_SIZE` mode:
 
 ```
 client/.venv/bin/pytest -v client/test_s3_compat.py
+```
+
+### Multi-bucket routing
+
+`test_multi_bucket.py` covers cross-bucket routing — the bucket comes from the URL, not config. It needs two distinct buckets, defaulting to `test-bucket-sidecar-1` / `test-bucket-sidecar-2`:
+
+```
+client/.venv/bin/pytest -v client/test_multi_bucket.py
 ```
 
 ### Mode-specific tests (opt-in)

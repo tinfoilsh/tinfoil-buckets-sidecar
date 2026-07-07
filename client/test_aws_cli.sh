@@ -11,7 +11,7 @@
 set -euo pipefail
 
 ENDPOINT="http://localhost:9000"
-BUCKET="mock"   # ignored by buckets; routes to its real backing bucket
+BUCKET="${TEST_BUCKET:-test-bucket-sidecar-1}"
 TMPDIR=$(mktemp -d)
 trap "rm -rf $TMPDIR" EXIT
 

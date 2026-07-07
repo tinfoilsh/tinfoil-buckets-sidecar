@@ -19,7 +19,7 @@ from botocore.config import Config
 from botocore.exceptions import ClientError
 
 ENDPOINT = os.environ.get("ENDPOINT", "http://localhost:9000")
-BUCKET = os.environ.get("TEST_BUCKET", "anybucket")
+BUCKET = os.environ.get("TEST_BUCKET", "test-bucket-sidecar-1")
 SIDECAR_MULTITENANT = os.environ.get("SIDECAR_MULTITENANT", "").lower() == "true"
 
 
