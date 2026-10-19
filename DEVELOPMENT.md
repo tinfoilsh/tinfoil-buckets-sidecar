@@ -28,7 +28,7 @@ Cross-bucket routing needs a second bucket (`TEST_BUCKET_2`, default `test-bucke
 client/.venv/bin/pytest -v client/test_multi_bucket.py
 ```
 
-Mode-specific tests are skipped unless you start the sidecar in the matching mode and tell the tests about it:
+Mode-specific tests are skipped unless you start the sidecar in the matching mode and tell the tests about it. Run each `mvn` line in one terminal and its `pytest` line in a second:
 
 ```bash
 # 413 when an object exceeds BUFFER_SIZE
