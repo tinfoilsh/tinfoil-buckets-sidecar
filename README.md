@@ -98,56 +98,9 @@ caller is responsible for tracking which key decrypts which object: if the
 wrong key arrives for a given object, the sidecar returns
 `400 DecryptionFailed`.
 
-## Run
+## Development
 
-- Local: `mvn compile exec:java`
-- Docker: `docker build -t tinfoil-buckets-sidecar . && docker run --rm -p 9000:9000 -v $(pwd)/.env:/app/.env tinfoil-buckets-sidecar`
-
-## Test
-
-`client/` contains the python S3 sdk and the pytest suite.
-
-Tests default to `test-bucket-sidecar-1` (override with `TEST_BUCKET`). The bucket must be accessible with your AWS credentials. Default suite works in any `BUFFER_SIZE` mode:
-
-```
-client/.venv/bin/pytest -v client/test_s3_compat.py
-```
-
-### Multi-bucket routing
-
-`test_multi_bucket.py` covers cross-bucket routing — the bucket comes from the URL, not config. It needs two distinct buckets, defaulting to `test-bucket-sidecar-1` / `test-bucket-sidecar-2`:
-
-```
-client/.venv/bin/pytest -v client/test_multi_bucket.py
-```
-
-### Mode-specific tests (opt-in)
-
-Some tests are gated on env vars so they only run when the sidecar is in the matching mode.
-
-**Buffer-exceeded path** — verify the `413 EntityTooLarge` response when an object is bigger than `BUFFER_SIZE`. Start the sidecar with a small buffer (here, 10 MiB):
-
-```
-BUFFER_SIZE=10485760 mvn compile exec:java
-```
-
-In another shell, tell the test what cap the sidecar is using:
-
-```
-SIDECAR_BUFFER_SIZE=10485760 client/.venv/bin/pytest -v client/test_s3_compat.py::test_buffer_exceeded_returns_413
-```
-
-**Delayed-auth mode** — verify streaming + trailer behavior. Start the sidecar with delayed auth on:
-
-```
-DANGEROUS_DELAYED_AUTH=true mvn compile exec:java
-```
-
-In another shell:
-
-```
-SIDECAR_DELAYED_AUTH=true client/.venv/bin/pytest -v client/test_s3_compat.py -k delayed_auth
-```
+See [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Design Decisions (constraints)
 
